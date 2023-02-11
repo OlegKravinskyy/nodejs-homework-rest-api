@@ -3,6 +3,7 @@ const UsersController = require("../../controllers/UsersController");
 const { schemas } = require("../../models/UsersModel");
 const { tryCatchWrapper } = require("../../helpers/index");
 const { auth } = require("../../middlewares/auth");
+const { upload } = require("../../middlewares/updateAvatar");
 const validation = require("../../helpers/validation");
 
 const router = express.Router();
@@ -30,4 +31,12 @@ router.get(
   tryCatchWrapper(auth),
   tryCatchWrapper(UsersController.getCurrentUser)
 );
+
+router.patch(
+  "/users/avatars",
+  tryCatchWrapper(auth),
+  upload.single("avatar"),
+  tryCatchWrapper(UsersController.updateAvatar)
+);
+
 module.exports = router;

@@ -1,9 +1,12 @@
 const { User } = require("../models/UsersModel");
+const path = require("path");
+const fs = require("fs/promises");
 const { isValidObjectId } = require("mongoose");
 const { Conflict, Unauthorized } = require("http-errors");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { token } = require("morgan");
+const Jimp = require("jimp");
 const { JWT_SECRET } = process.env;
 
 class UsersController {
@@ -69,6 +72,59 @@ class UsersController {
     const { email, subscription } = user;
     res.status(200).json({ email: email, subscription: subscription });
   }
+
+  async updateAvatar(req, res, next) {
+    const avatarDir = path.join(__dirname, "..", "public", "avatar");
+    const { path: tempLoad, originalname } = req.file;
+    const { _id } = req.user;
+    const imageName = `${_id}_${originalname}`;
+    try {
+      const resultUpload = path.join(avatarDir, imageName);
+      await Jimp.read(resultUpload)
+        .then((avatar) => {
+          return avatar.resize(250, 250).write(resultUpload);
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+      await User.findByIdAndUpdate(
+        _id,
+        {
+          avatarURL: `${req.protocol + "://" + req.get("host")}/avatars/${
+            _id + ".jpeg"
+          }`,
+        },
+        { new: true }
+      );
+      res.json({
+        avatarURL: `${req.protocol + "://" + req.get("host")}/avatars/${
+          _id + ".jpeg"
+        }`,
+      });
+    } catch (error) {
+      await fs.unlink(tempLoad);
+      throw error;
+    }
+  }
+
+  //   const { originalname, path: tmpDir } = req.file;
+  // const { _id } = req.user;
+
+  // try {
+  //   const [extension] = originalname.split(".").reverse();
+  //   const newImgName = `userAvatar_${_id}.${extension}`;
+  //   const originalImg = await Jimp.read(tmpDir);
+  //   const resizedImg = await originalImg.cover(250, 250);
+  //   await resizedImg.write(`${uploadDir}/avatars/${newImgName}`);
+  //   fs.unlink(tmpDir);
+  //   const avatar = path.join(avatarURLpath, newImgName);
+  //   const result = await auth.updateAvatar(avatar, _id);
+  //   const { avatarURL } = result;
+  //   res.status(200).json({ avatarURL });
+  // } catch (error) {
+  //   fs.unlink(tmpDir);
+  //   res.json({ error });
+  // }
 }
 
 module.exports = new UsersController();
