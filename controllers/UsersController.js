@@ -2,11 +2,12 @@ const { User } = require("../models/UsersModel");
 const path = require("path");
 const fs = require("fs/promises");
 const { isValidObjectId } = require("mongoose");
-const { Conflict, Unauthorized } = require("http-errors");
+const { Conflict, Unauthorized, BadRequest, NotFound } = require("http-errors");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { token } = require("morgan");
 const Jimp = require("jimp");
+const sendEmail = "../helpers/sendEmail.js";
 const { JWT_SECRET } = process.env;
 
 class UsersController {
@@ -107,24 +108,50 @@ class UsersController {
     }
   }
 
-  //   const { originalname, path: tmpDir } = req.file;
-  // const { _id } = req.user;
+  async verify(req, res, next) {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
 
-  // try {
-  //   const [extension] = originalname.split(".").reverse();
-  //   const newImgName = `userAvatar_${_id}.${extension}`;
-  //   const originalImg = await Jimp.read(tmpDir);
-  //   const resizedImg = await originalImg.cover(250, 250);
-  //   await resizedImg.write(`${uploadDir}/avatars/${newImgName}`);
-  //   fs.unlink(tmpDir);
-  //   const avatar = path.join(avatarURLpath, newImgName);
-  //   const result = await auth.updateAvatar(avatar, _id);
-  //   const { avatarURL } = result;
-  //   res.status(200).json({ avatarURL });
-  // } catch (error) {
-  //   fs.unlink(tmpDir);
-  //   res.json({ error });
-  // }
+    if (!user) {
+      throw new NotFound(`User not found`);
+    }
+
+    const { verificationToken, verify } = user;
+
+    if (verify) {
+      throw new BadRequest("Verification has already been passed");
+    }
+    const mail = {
+      to: email,
+      subject:
+        "The Second International Intergalactic Conference in New Vasyuki on the Problems of the Military Space Forces of russia in black holes",
+      html: `<a target="_blank" href="https://localhost:3001/api/users/verify/${verificationToken}">Press to confirm email</a>`,
+    };
+
+    await sendEmail(mail);
+
+    res.json({
+      message: "Verification email sent",
+    });
+  }
+
+  async getVerificationUser(req, res, next) {
+    const { verificationToken } = req.params;
+    const user = await User.findOne({ verificationToken });
+
+    if (!user) {
+      throw new NotFound("User not found");
+    }
+
+    await User.findByIdAndUpdate(user._id, {
+      verify: true,
+      verificationToken: null,
+    });
+
+    res.json({
+      message: "Verification successful",
+    });
+  }
 }
 
 module.exports = new UsersController();

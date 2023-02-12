@@ -39,4 +39,13 @@ router.patch(
   tryCatchWrapper(UsersController.updateAvatar)
 );
 
+router.post(
+  "/users/verify",
+  validation(schemas.verify),
+  tryCatchWrapper(UsersController.verify)
+);
+
+router.get("users/verify/:verificationToken"),
+  tryCatchWrapper(UsersController.getVerificationUser);
+
 module.exports = router;
